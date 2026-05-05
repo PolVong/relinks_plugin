@@ -28,6 +28,15 @@ add_action( 'admin_notices', function() {
     }
 } );
 
+// Auto-update from GitHub
+require_once RELINKS_DIR . 'lib/plugin-update-checker/load-v5p6.php';
+$update_checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+    'https://github.com/PolVong/relinks_plugin/',
+    __FILE__,
+    'relinks'
+);
+$update_checker->setBranch( 'main' );
+
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function( $links ) {
     $settings_link = '<a href="' . admin_url( 'admin.php?page=relinks-options' ) . '">' . __( 'Settings' ) . '</a>';
     array_unshift( $links, $settings_link );
