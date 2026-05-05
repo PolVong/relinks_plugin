@@ -13,6 +13,20 @@ add_action( 'admin_menu', function() {
     );
 } );
 
+// ── Handle log clear ─────────────────────────────────────────────────────────
+add_action( 'admin_post_relinks_clear_log', function() {
+    check_admin_referer( 'relinks_clear_log' );
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
+
+    $log_file = RELINKS_DIR . 'data/relinks.log';
+    if ( file_exists( $log_file ) ) {
+        file_put_contents( $log_file, '' );
+    }
+
+    wp_redirect( admin_url( 'admin.php?page=relinks-tools#log' ) );
+    exit;
+} );
+
 // ── Handle Google Sheets sync ─────────────────────────────────────────────────
 add_action( 'admin_post_relinks_sync_gsheets', function() {
     check_admin_referer( 'relinks_sync_gsheets' );
@@ -121,6 +135,29 @@ function relinks_tools_page() {
             <input type="file" name="anchors_file" accept=".txt" style="margin-right:8px;">
             <?php submit_button( 'Завантажити та імпортувати', 'secondary', 'submit', false ); ?>
         </form>
+        <hr>
+
+        <h2 id="log">Лог подій</h2>
+        <?php
+        $log_file = RELINKS_DIR . 'data/relinks.log';
+        $log_lines = [];
+        if ( file_exists( $log_file ) ) {
+            $all_lines = file( $log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+            $log_lines = array_slice( $all_lines, -100 );
+            $log_lines = array_reverse( $log_lines );
+        }
+        ?>
+        <?php if ( ! empty( $log_lines ) ) : ?>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:8px;">
+                <input type="hidden" name="action" value="relinks_clear_log">
+                <?php wp_nonce_field( 'relinks_clear_log' ); ?>
+                <?php submit_button( 'Очистити лог', 'delete small', 'submit', false ); ?>
+            </form>
+            <textarea readonly style="width:100%;height:300px;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border:none;padding:10px;resize:vertical;"><?php echo esc_textarea( implode( "\n", $log_lines ) ); ?></textarea>
+        <?php else : ?>
+            <p style="color:#999;">Лог порожній.</p>
+        <?php endif; ?>
+
         <hr>
 
         <?php $stats = relinks_get_anchor_stats(); ?>

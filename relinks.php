@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Relinks
  * Description: Система внутрішньої перелінковки. ACF Block + автодобір анкорів з JSON + рівномірний розподіл.
- * Version:     2.3.0
+ * Version:     2.4.0
  * Author:      Todo
  * Text Domain: relinks
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'RELINKS_VERSION', '2.3.0' );
+define( 'RELINKS_VERSION', '2.4.0' );
 define( 'RELINKS_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'RELINKS_URL',     plugin_dir_url( __FILE__ ) );
 

@@ -2,6 +2,15 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
+ * Write a line to data/relinks.log with timestamp.
+ */
+function relinks_log( $message ) {
+    $file = RELINKS_DIR . 'data/relinks.log';
+    $line = '[' . date( 'd.m.Y H:i:s' ) . '] ' . $message . PHP_EOL;
+    file_put_contents( $file, $line, FILE_APPEND | LOCK_EX );
+}
+
+/**
  * Load and cache relinking.json.
  * Returns: array [ 'url' => ['anchor1', ...], ... ]
  */
@@ -93,10 +102,20 @@ function relinks_get_usage_counts( $exclude_post_id = null ) {
  * @return array [ ['anchor' => '...', 'url' => '...'], ... ]
  */
 function relinks_generate( $post_id, $count = 6 ) {
+    relinks_log( "generate: start post_id={$post_id} count={$count}" );
+
     $json        = relinks_load_json();
     $current_url = get_permalink( $post_id );
 
-    if ( empty( $json ) || ! $current_url ) return [];
+    if ( empty( $json ) ) {
+        relinks_log( "generate: ABORT — relinking.json порожній або не знайдено" );
+        return [];
+    }
+
+    if ( ! $current_url ) {
+        relinks_log( "generate: ABORT — не вдалося отримати permalink для post_id={$post_id}" );
+        return [];
+    }
 
     $current_path = relinks_normalize_url( $current_url );
 
@@ -149,6 +168,7 @@ function relinks_generate( $post_id, $count = 6 ) {
         }
     }
 
+    relinks_log( "generate: done — згенеровано " . count( $result ) . " з {$count} посилань для post_id={$post_id}" );
     return $result;
 }
 
@@ -192,26 +212,33 @@ function relinks_get_anchor_stats() {
  * Returns: ['success' => bool, 'count' => int, 'message' => string]
  */
 function relinks_sync_gsheets() {
+    relinks_log( "sync_gsheets: start" );
+
     $url = get_field( 'relinks_gsheets_url', 'option' );
 
     if ( ! $url ) {
+        relinks_log( "sync_gsheets: ABORT — URL не вказано" );
         return [ 'success' => false, 'count' => 0, 'message' => 'URL Google Sheets не вказано в налаштуваннях.' ];
     }
 
     if ( ! preg_match( '/spreadsheets\/d\/([a-zA-Z0-9_-]+)/', $url, $matches ) ) {
+        relinks_log( "sync_gsheets: ABORT — не вдалося визначити ID таблиці з URL: {$url}" );
         return [ 'success' => false, 'count' => 0, 'message' => 'Не вдалося визначити ID таблиці з URL.' ];
     }
 
     $sheet_id = $matches[1];
     $csv_url  = "https://docs.google.com/spreadsheets/d/{$sheet_id}/export?format=csv";
+    relinks_log( "sync_gsheets: fetching {$csv_url}" );
 
     $response = wp_remote_get( $csv_url, [ 'timeout' => 15 ] );
 
     if ( is_wp_error( $response ) ) {
+        relinks_log( "sync_gsheets: ERROR — " . $response->get_error_message() );
         return [ 'success' => false, 'count' => 0, 'message' => 'Помилка з\'єднання: ' . $response->get_error_message() ];
     }
 
     $code = wp_remote_retrieve_response_code( $response );
+    relinks_log( "sync_gsheets: HTTP {$code}" );
     if ( $code !== 200 ) {
         return [ 'success' => false, 'count' => 0, 'message' => "HTTP помилка: {$code}. Перевірте доступ до таблиці (має бути відкрита за посиланням)." ];
     }
@@ -246,6 +273,7 @@ function relinks_sync_gsheets() {
     }
 
     if ( empty( $data ) ) {
+        relinks_log( "sync_gsheets: ABORT — жодного валідного рядка не розпарсено" );
         return [ 'success' => false, 'count' => 0, 'message' => 'Таблиця порожня або невірний формат. Очікується: Анкор | URL.' ];
     }
 
@@ -260,10 +288,12 @@ function relinks_sync_gsheets() {
         return [ 'success' => false, 'count' => 0, 'message' => 'Помилка запису файлу. Перевірте права доступу до /data/.' ];
     }
 
+    $count = count( $data );
+    relinks_log( "sync_gsheets: OK — збережено {$count} URL у relinking.json" );
     return [
         'success' => true,
-        'count'   => count( $data ),
-        'message' => sprintf( 'Синхронізовано %d сторінок з анкорами.', count( $data ) ),
+        'count'   => $count,
+        'message' => sprintf( 'Синхронізовано %d сторінок з анкорами.', $count ),
     ];
 }
 
