@@ -7,10 +7,9 @@ add_action( 'admin_post_relinks_sync_gsheets', function() {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
 
     $result = relinks_sync_gsheets();
-    $status = $result['success'] ? 'success' : 'error';
-    $msg    = urlencode( $result['message'] );
+    set_transient( 'relinks_notice_' . get_current_user_id(), $result, 60 );
 
-    wp_redirect( admin_url( 'options-general.php?page=relinks-options&status=' . $status . '&msg=' . $msg ) );
+    wp_redirect( admin_url( 'options-general.php?page=relinks-options' ) );
     exit;
 } );
 
@@ -20,10 +19,9 @@ add_action( 'admin_post_relinks_import', function() {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
 
     $result = relinks_import_txt();
-    $status = $result['success'] ? 'success' : 'error';
-    $msg    = urlencode( $result['message'] );
+    set_transient( 'relinks_notice_' . get_current_user_id(), $result, 60 );
 
-    wp_redirect( admin_url( 'options-general.php?page=relinks-options&status=' . $status . '&msg=' . $msg ) );
+    wp_redirect( admin_url( 'options-general.php?page=relinks-options' ) );
     exit;
 } );
 
@@ -32,14 +30,13 @@ add_action( 'admin_notices', function() {
     $screen = get_current_screen();
     if ( ! $screen || $screen->id !== 'settings_page_relinks-options' ) return;
 
-    $status = $_GET['status'] ?? '';
-    $msg    = isset( $_GET['msg'] ) ? urldecode( sanitize_text_field( $_GET['msg'] ) ) : '';
+    $result = get_transient( 'relinks_notice_' . get_current_user_id() );
+    if ( ! $result ) return;
 
-    if ( $status === 'success' && $msg ) {
-        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $msg ) . '</p></div>';
-    } elseif ( $status === 'error' && $msg ) {
-        echo '<div class="notice notice-error"><p>' . esc_html( $msg ) . '</p></div>';
-    }
+    delete_transient( 'relinks_notice_' . get_current_user_id() );
+
+    $type = $result['success'] ? 'success' : 'error';
+    echo '<div class="notice notice-' . $type . ' is-dismissible"><p>' . esc_html( $result['message'] ) . '</p></div>';
 } );
 
 // ── Sync button after GSheets URL field ───────────────────────────────────────
