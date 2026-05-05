@@ -26,10 +26,27 @@ add_action( 'admin_post_relinks_sync_gsheets', function() {
     exit;
 } );
 
-// ── Handle import from anchors.txt ────────────────────────────────────────────
-add_action( 'admin_post_relinks_import', function() {
-    check_admin_referer( 'relinks_import' );
+// ── Handle import via file upload ─────────────────────────────────────────────
+add_action( 'admin_post_relinks_import_upload', function() {
+    check_admin_referer( 'relinks_import_upload' );
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
+
+    if ( empty( $_FILES['anchors_file']['tmp_name'] ) ) {
+        $status = 'error';
+        $msg    = urlencode( 'Файл не вибрано.' );
+        wp_redirect( admin_url( 'admin.php?page=relinks-tools&status=' . $status . '&msg=' . $msg ) );
+        exit;
+    }
+
+    $tmp  = $_FILES['anchors_file']['tmp_name'];
+    $dest = RELINKS_DIR . 'anchors.txt';
+
+    if ( ! move_uploaded_file( $tmp, $dest ) ) {
+        $status = 'error';
+        $msg    = urlencode( 'Не вдалося зберегти файл. Перевірте права доступу.' );
+        wp_redirect( admin_url( 'admin.php?page=relinks-tools&status=' . $status . '&msg=' . $msg ) );
+        exit;
+    }
 
     $result = relinks_import_txt();
     $status = $result['success'] ? 'success' : 'error';
@@ -96,16 +113,15 @@ function relinks_tools_page() {
 
         <hr>
 
-        <?php if ( file_exists( RELINKS_DIR . 'anchors.txt' ) ) : ?>
-            <h2>Імпорт з anchors.txt</h2>
-            <p>Ручний метод: покладіть файл <code>anchors.txt</code> у папку плагіна і натисніть кнопку.</p>
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                <input type="hidden" name="action" value="relinks_import">
-                <?php wp_nonce_field( 'relinks_import' ); ?>
-                <?php submit_button( 'Імпортувати anchors.txt → relinking.json', 'secondary', 'submit', false ); ?>
-            </form>
-            <hr>
-        <?php endif; ?>
+        <h2>Імпорт з anchors.txt</h2>
+        <p>Завантажте файл <code>anchors.txt</code> з локального комп'ютера.</p>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="relinks_import_upload">
+            <?php wp_nonce_field( 'relinks_import_upload' ); ?>
+            <input type="file" name="anchors_file" accept=".txt" style="margin-right:8px;">
+            <?php submit_button( 'Завантажити та імпортувати', 'secondary', 'submit', false ); ?>
+        </form>
+        <hr>
 
         <?php $stats = relinks_get_anchor_stats(); ?>
         <?php if ( ! empty( $stats ) ) : ?>
