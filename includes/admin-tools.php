@@ -1,15 +1,28 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// ── Register hidden tools page ────────────────────────────────────────────────
+add_action( 'admin_menu', function() {
+    add_submenu_page(
+        null,
+        'Relinks — Інструменти',
+        'Relinks Інструменти',
+        'manage_options',
+        'relinks-tools',
+        'relinks_tools_page'
+    );
+} );
+
 // ── Handle Google Sheets sync ─────────────────────────────────────────────────
 add_action( 'admin_post_relinks_sync_gsheets', function() {
-    check_admin_referer( 'relinks_sync_gsheets', '_wpnonce' );
+    check_admin_referer( 'relinks_sync_gsheets' );
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
 
     $result = relinks_sync_gsheets();
-    set_transient( 'relinks_notice_' . get_current_user_id(), $result, 60 );
+    $status = $result['success'] ? 'success' : 'error';
+    $msg    = urlencode( $result['message'] );
 
-    wp_redirect( admin_url( 'options-general.php?page=relinks-options' ) );
+    wp_redirect( admin_url( 'admin.php?page=relinks-tools&status=' . $status . '&msg=' . $msg ) );
     exit;
 } );
 
@@ -19,47 +32,15 @@ add_action( 'admin_post_relinks_import', function() {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
 
     $result = relinks_import_txt();
-    set_transient( 'relinks_notice_' . get_current_user_id(), $result, 60 );
+    $status = $result['success'] ? 'success' : 'error';
+    $msg    = urlencode( $result['message'] );
 
-    wp_redirect( admin_url( 'options-general.php?page=relinks-options' ) );
+    wp_redirect( admin_url( 'admin.php?page=relinks-tools&status=' . $status . '&msg=' . $msg ) );
     exit;
 } );
 
-// ── Status notices on options page ────────────────────────────────────────────
-add_action( 'admin_notices', function() {
-    $screen = get_current_screen();
-    if ( ! $screen || $screen->id !== 'settings_page_relinks-options' ) return;
-
-    $result = get_transient( 'relinks_notice_' . get_current_user_id() );
-    if ( ! $result ) return;
-
-    delete_transient( 'relinks_notice_' . get_current_user_id() );
-
-    $type = $result['success'] ? 'success' : 'error';
-    echo '<div class="notice notice-' . $type . ' is-dismissible"><p>' . esc_html( $result['message'] ) . '</p></div>';
-} );
-
-// ── Sync button after GSheets URL field ───────────────────────────────────────
-add_action( 'acf/render_field/key=field_relinks_gsheets_url', function() {
-    $gsheets_url = get_field( 'relinks_gsheets_url', 'option' );
-    if ( ! $gsheets_url ) return;
-
-    $url = wp_nonce_url(
-        admin_url( 'admin-post.php?action=relinks_sync_gsheets' ),
-        'relinks_sync_gsheets'
-    );
-    ?>
-    <div style="margin-top:10px;">
-        <a href="<?php echo esc_url( $url ); ?>" class="button button-secondary">↻ Синхронізувати</a>
-    </div>
-    <?php
-} );
-
-// ── Stats + Import section at bottom of options page ─────────────────────────
-add_action( 'admin_footer', function() {
-    $screen = get_current_screen();
-    if ( ! $screen || $screen->id !== 'settings_page_relinks-options' ) return;
-
+// ── Tools page HTML ───────────────────────────────────────────────────────────
+function relinks_tools_page() {
     $json_file   = RELINKS_DIR . 'data/relinking.json';
     $json_exists = file_exists( $json_file );
     $json_count  = 0;
@@ -70,9 +51,21 @@ add_action( 'admin_footer', function() {
         $json_count = is_array( $data ) ? count( $data ) : 0;
         $last_mod   = date_i18n( 'd.m.Y H:i', filemtime( $json_file ) );
     }
+
+    $gsheets_url = get_field( 'relinks_gsheets_url', 'option' );
+    $status      = $_GET['status'] ?? '';
+    $msg         = isset( $_GET['msg'] ) ? urldecode( sanitize_text_field( $_GET['msg'] ) ) : '';
     ?>
-    <div id="relinks-tools-section" style="display:none;">
-        <hr>
+    <div class="wrap">
+        <h1>Relinks — Інструменти</h1>
+
+        <p><a href="<?php echo esc_url( admin_url( 'options-general.php?page=relinks-options' ) ); ?>">← Налаштування</a></p>
+
+        <?php if ( $status === 'success' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $msg ); ?></p></div>
+        <?php elseif ( $status === 'error' ) : ?>
+            <div class="notice notice-error"><p><?php echo esc_html( $msg ); ?></p></div>
+        <?php endif; ?>
 
         <h2>Стан бази анкорів</h2>
         <p>
@@ -86,6 +79,23 @@ add_action( 'admin_footer', function() {
             <?php endif; ?>
         </p>
 
+        <h2>Синхронізація з Google Sheets</h2>
+        <?php if ( $gsheets_url ) : ?>
+            <p><a href="<?php echo esc_url( $gsheets_url ); ?>" target="_blank"><?php echo esc_html( $gsheets_url ); ?></a></p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <input type="hidden" name="action" value="relinks_sync_gsheets">
+                <?php wp_nonce_field( 'relinks_sync_gsheets' ); ?>
+                <?php submit_button( '↻ Синхронізувати з Google Sheets', 'primary', 'submit', false ); ?>
+            </form>
+        <?php else : ?>
+            <p style="color:#999;">
+                URL не вказано.
+                <a href="<?php echo esc_url( admin_url( 'options-general.php?page=relinks-options' ) ); ?>">Додати в налаштуваннях →</a>
+            </p>
+        <?php endif; ?>
+
+        <hr>
+
         <?php if ( file_exists( RELINKS_DIR . 'anchors.txt' ) ) : ?>
             <h2>Імпорт з anchors.txt</h2>
             <p>Ручний метод: покладіть файл <code>anchors.txt</code> у папку плагіна і натисніть кнопку.</p>
@@ -94,11 +104,12 @@ add_action( 'admin_footer', function() {
                 <?php wp_nonce_field( 'relinks_import' ); ?>
                 <?php submit_button( 'Імпортувати anchors.txt → relinking.json', 'secondary', 'submit', false ); ?>
             </form>
+            <hr>
         <?php endif; ?>
 
         <?php $stats = relinks_get_anchor_stats(); ?>
         <?php if ( ! empty( $stats ) ) : ?>
-            <h2 style="margin-top:20px;">Статистика анкорів</h2>
+            <h2>Статистика анкорів</h2>
             <p>Анкори відсортовані від найчастіше до найрідше використовуваних.</p>
             <table class="widefat striped" style="max-width:600px;">
                 <thead>
@@ -116,12 +127,9 @@ add_action( 'admin_footer', function() {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        <?php else : ?>
+            <p style="color:#999;">Статистика з'явиться після першої генерації посилань.</p>
         <?php endif; ?>
     </div>
-    <script>
-    jQuery(function($) {
-        $('#relinks-tools-section').appendTo('.wrap:first').show();
-    });
-    </script>
     <?php
-} );
+}

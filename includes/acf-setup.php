@@ -147,6 +147,12 @@ add_action( 'acf/init', function() {
     ] );
 } );
 
+// ── Link to tools page after last options field ───────────────────────────────
+add_action( 'acf/render_field/key=field_relinks_enabled', function() {
+    $url = admin_url( 'admin.php?page=relinks-tools' );
+    echo '<p style="margin-top:12px;"><a href="' . esc_url( $url ) . '" class="button button-secondary">→ Синхронізація та інструменти</a></p>';
+} );
+
 // ── ACF Save: тригер автогенерації ────────────────────────────────────────────
 add_action( 'acf/save_post', 'relinks_on_acf_save', 20 );
 
