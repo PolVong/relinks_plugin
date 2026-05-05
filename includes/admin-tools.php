@@ -71,7 +71,7 @@ add_action( 'admin_footer', function() {
         $last_mod   = date_i18n( 'd.m.Y H:i', filemtime( $json_file ) );
     }
     ?>
-    <div class="wrap" style="margin-top:0;">
+    <div id="relinks-tools-section" style="display:none;">
         <hr>
 
         <h2>Стан бази анкорів</h2>
@@ -118,5 +118,10 @@ add_action( 'admin_footer', function() {
             </table>
         <?php endif; ?>
     </div>
+    <script>
+    jQuery(function($) {
+        $('#relinks-tools-section').appendTo('.wrap:first').show();
+    });
+    </script>
     <?php
 } );
