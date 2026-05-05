@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 // ── Handle Google Sheets sync ─────────────────────────────────────────────────
 add_action( 'admin_post_relinks_sync_gsheets', function() {
-    check_admin_referer( 'relinks_sync_gsheets' );
+    check_admin_referer( 'relinks_sync_gsheets', '_wpnonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Недостатньо прав.' );
 
     $result = relinks_sync_gsheets();
@@ -46,12 +46,15 @@ add_action( 'admin_notices', function() {
 add_action( 'acf/render_field/key=field_relinks_gsheets_url', function() {
     $gsheets_url = get_field( 'relinks_gsheets_url', 'option' );
     if ( ! $gsheets_url ) return;
+
+    $url = wp_nonce_url(
+        admin_url( 'admin-post.php?action=relinks_sync_gsheets' ),
+        'relinks_sync_gsheets'
+    );
     ?>
-    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px;">
-        <input type="hidden" name="action" value="relinks_sync_gsheets">
-        <?php wp_nonce_field( 'relinks_sync_gsheets' ); ?>
-        <button type="submit" class="button button-secondary">↻ Синхронізувати</button>
-    </form>
+    <div style="margin-top:10px;">
+        <a href="<?php echo esc_url( $url ); ?>" class="button button-secondary">↻ Синхронізувати</a>
+    </div>
     <?php
 } );
 
