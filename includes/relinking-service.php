@@ -227,7 +227,15 @@ function relinks_sync_gsheets() {
     }
 
     $sheet_id = $matches[1];
-    $csv_url  = "https://docs.google.com/spreadsheets/d/{$sheet_id}/export?format=csv";
+    $gid      = null;
+    if ( preg_match( '/[?&#]gid=(\d+)/', $url, $gid_matches ) ) {
+        $gid = $gid_matches[1];
+    }
+
+    $csv_url = "https://docs.google.com/spreadsheets/d/{$sheet_id}/export?format=csv";
+    if ( $gid ) {
+        $csv_url .= "&gid={$gid}";
+    }
     relinks_log( "sync_gsheets: fetching {$csv_url}" );
 
     $response = wp_remote_get( $csv_url, [ 'timeout' => 15 ] );
