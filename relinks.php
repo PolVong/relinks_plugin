@@ -28,6 +28,12 @@ add_action( 'admin_notices', function() {
     }
 } );
 
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function( $links ) {
+    $settings_link = '<a href="' . admin_url( 'admin.php?page=relinks-options' ) . '">' . __( 'Settings' ) . '</a>';
+    array_unshift( $links, $settings_link );
+    return $links;
+} );
+
 // Load includes after all plugins loaded
 add_action( 'plugins_loaded', function() {
     require_once RELINKS_DIR . 'includes/relinking-service.php';
