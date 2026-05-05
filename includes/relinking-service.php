@@ -232,6 +232,11 @@ function relinks_sync_gsheets() {
 
         if ( ! $anchor || ! $url_val ) continue;
         if ( stripos( $anchor, 'не створена' ) !== false ) continue;
+
+        if ( str_starts_with( $url_val, '/' ) ) {
+            $url_val = home_url( $url_val );
+        }
+
         if ( ! filter_var( $url_val, FILTER_VALIDATE_URL ) ) continue;
 
         if ( ! isset( $data[ $url_val ] ) ) $data[ $url_val ] = [];
